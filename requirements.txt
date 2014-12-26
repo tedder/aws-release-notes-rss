@@ -2,3 +2,4 @@ requests>=2.2.1
 lxml>=2.3.2
 boto>=2.27.0
 PyRSS2Gen==1.1
+python-dateutil>=2.3
