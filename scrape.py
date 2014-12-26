@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding: utf-8
 
 # MIT license
 # (see: http://www.opensource.org/licenses/mit-license.php)
