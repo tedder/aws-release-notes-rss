@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # coding: utf-8
 
 # MIT license
@@ -12,13 +12,13 @@
 #
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import boto
+import boto3
 import requests
 from lxml import html
 import lxml
 import PyRSS2Gen
 import datetime
-import StringIO
+from io import StringIO
 import sys
 from dateutil.parser import parse
 
@@ -29,7 +29,7 @@ try:
 except lxml.etree.XMLSyntaxError:
   if page.status_code == 500:
     sys.exit(0)
-  print "page failed. %s" % page.status_code
+  print("page failed. %s" % page.status_code)
 
 rssitems = []
 
@@ -42,7 +42,8 @@ for item in items:
   desc = item.xpath('normalize-space(div[@class="desc"]/text())')
   modDate = item.xpath('normalize-space(div[@class="lastMod"]/text())')
   # strip off the initial text, the parser doesn't grok it.
-  parsedDate = parse(modDate.replace('Last Modified: ', ''))
+  # strip off the 'PM' symbol too. "23:02 PM" is "23:02". Dateparser gets very confused.
+  parsedDate = parse(modDate.replace('Last Modified: ', '').replace(' PM', ''))
   rssitems.append(PyRSS2Gen.RSSItem(
     title = title,
     link = itemlink,
@@ -62,11 +63,9 @@ rss = PyRSS2Gen.RSS2(
   items = rssitems
 )
 
-rssfile = StringIO.StringIO()
+rssfile = StringIO()
 rss.write_xml(rssfile)
 
-s3bucket = boto.connect_s3().get_bucket('tedder')
-s3key =  s3bucket.new_key('rss/aws-release-notes.xml')
-s3key.set_metadata('Content-Type', 'application/rss+xml')
-s3key.set_contents_from_string(rssfile.getvalue(), replace=True, reduced_redundancy=True, headers={'Cache-Control':'public, max-age=3600'}, policy="public-read")
+s3 = boto3.client('s3')
+s3.put_object(Bucket='tedder', Key='rss/aws-release-notes.xml', Body=rssfile.getvalue(), StorageClass='REDUCED_REDUNDANCY', ContentType='application/rss+xml', CacheControl='max-age=21600,public', ACL='public-read')
 
