@@ -14,58 +14,45 @@
 
 import boto3
 import requests
-from lxml import html
-import lxml
 import PyRSS2Gen
 import datetime
 from io import StringIO
 import sys
 from dateutil.parser import parse
 
-LINK = "https://aws.amazon.com/releasenotes/"
-page = requests.get(LINK)
-try:
-  tree = html.fromstring(page.text)
-except lxml.etree.XMLSyntaxError:
-  if page.status_code == 500:
+def item_to_rss(item):
+    link = "https://aws.amazon.com/"+item["id"].replace("#","/")+"/"
+    desc = item["additionalFields"]["description"]
+    return PyRSS2Gen.RSSItem(
+        author = item["author"],
+        title = item["name"],
+        link = link,
+        guid = link,
+        description = desc,
+        pubDate = parse(item["dateUpdated"])
+    )
+
+request = requests.get("https://aws.amazon.com/api/dirs/releasenotes/items?order_by=DateCreated&sort_ascending=false&limit=25&locale=en_US")
+
+if request.status_code == 500:
     sys.exit(0)
-  print("page failed. %s" % page.status_code)
-
-rssitems = []
-
-#items = tree.xpath('//itemsTable/div[@class="item"]')
-items = tree.xpath('//div[@id="itemsTable"]/div[@class="item"]')
-
-for item in items:
-  title = item.xpath('normalize-space(div[@class="title"]/a/text())')
-  itemlink = item.xpath('normalize-space(div[@class="title"]/a/@href)')
-  desc = item.xpath('normalize-space(div[@class="desc"]/text())')
-  modDate = item.xpath('normalize-space(div[@class="lastMod"]/text())')
-  # strip off the initial text, the parser doesn't grok it.
-  # strip off the 'PM' symbol too. "23:02 PM" is "23:02". Dateparser gets very confused.
-  parsedDate = parse(modDate.replace('Last Modified: ', '').replace(' PM', ''))
-  rssitems.append(PyRSS2Gen.RSSItem(
-    title = title,
-    link = itemlink,
-    guid = itemlink,
-    description = desc,
-    pubDate = parsedDate
-  ))
-
 
 rss = PyRSS2Gen.RSS2(
-  title = "Amazon AWS Release Notes scraped feed",
-  link = LINK,
-  ttl = 3600, # cache 6hrs
-  docs = "https://github.com/tedder/aws-release-notes-rss",
-  description = "new code and features from AWS",
-  lastBuildDate = datetime.datetime.now(),
-  items = rssitems
+    title = "Amazon AWS Release Notes scraped feed",
+    link = "https://aws.amazon.com/releasenotes/",
+    ttl = 6*60, # in minutes!
+    docs = "https://github.com/tedder/aws-release-notes-rss",
+    description = "new code and features from AWS",
+    lastBuildDate = datetime.datetime.now(),
+    items = map(item_to_rss, request.json()["items"])
 )
 
 rssfile = StringIO()
 rss.write_xml(rssfile)
 
-s3 = boto3.client('s3')
-s3.put_object(Bucket='tedder', Key='rss/aws-release-notes.xml', Body=rssfile.getvalue(), StorageClass='REDUCED_REDUNDANCY', ContentType='application/rss+xml', CacheControl='max-age=21600,public', ACL='public-read')
 
+s3 = boto3.client("s3")
+if "tedder" in map(lambda b: b["Name"], s3.list_buckets()["Buckets"]):
+    s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssfile.getvalue(), StorageClass="REDUCED_REDUNDANCY", ContentType="application/rss+xml", CacheControl="max-age=21600,public", ACL="public-read")
+else:
+    print(rssfile.getvalue())
