@@ -53,6 +53,6 @@ rss.write_xml(rssfile)
 
 s3 = boto3.client("s3")
 if "tedder" in map(lambda b: b["Name"], s3.list_buckets()["Buckets"]):
-    s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssfile.getvalue(), StorageClass="REDUCED_REDUNDANCY", ContentType="application/rss+xml", CacheControl="max-age=21600,public", ACL="public-read")
+    s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssfile.getvalue(), ContentType="application/rss+xml", CacheControl="max-age=21600,public", ACL="public-read")
 else:
     print(rssfile.getvalue())
