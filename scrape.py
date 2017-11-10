@@ -22,7 +22,9 @@ from dateutil.parser import parse
 
 def item_to_rss(item):
     link = "https://aws.amazon.com/"+item["id"].replace("#","/")+"/"
-    desc = item["additionalFields"]["description"]
+    desc = item['additionalFields'].get('description', '')
+    if not desc:
+      item['additionalFields'].get('content', '')
     return PyRSS2Gen.RSSItem(
         author = item["author"],
         title = item["name"],
