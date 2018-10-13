@@ -51,9 +51,12 @@ rss = PyRSS2Gen.RSS2(
 rssdata = rss.to_xml(request.encoding)
 
 
-s3 = boto3.client("s3")
-if "tedder" in map(lambda b: b["Name"], s3.list_buckets()["Buckets"]):
-    s3.put_object(Bucket="dyn.tedder.me", Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
-    s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
+if "S3_BUCKET_NAME" in os.environ:
+    s3 = boto3.client("s3")
+    s3.put_object(Bucket=os.environ["S3_BUCKET_NAME"], Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
+
+    # also upload to legacy bucket:
+    if os.environ["S3_BUCKET_NAME"] == "dyn.tedder.me":
+        s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
 else:
     print(rssdata)
