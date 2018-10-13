@@ -16,7 +16,6 @@ import boto3
 import requests
 import PyRSS2Gen
 import datetime
-from io import StringIO
 import sys
 from dateutil.parser import parse
 
@@ -49,13 +48,12 @@ rss = PyRSS2Gen.RSS2(
     items = map(item_to_rss, request.json()["items"])
 )
 
-rssfile = StringIO()
-rss.write_xml(rssfile)
+rssdata = rss.to_xml(request.encoding)
 
 
 s3 = boto3.client("s3")
 if "tedder" in map(lambda b: b["Name"], s3.list_buckets()["Buckets"]):
-    s3.put_object(Bucket="dyn.tedder.me", Key="rss/aws-release-notes.xml", Body=rssfile.getvalue(), ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
-    s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssfile.getvalue(), ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
+    s3.put_object(Bucket="dyn.tedder.me", Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
+    s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
 else:
-    print(rssfile.getvalue())
+    print(rssdata)
