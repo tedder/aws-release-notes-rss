@@ -12,26 +12,28 @@
 #
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import os
+import sys
 import boto3
 import requests
 import PyRSS2Gen
 import datetime
-from io import StringIO
-import sys
-from dateutil.parser import parse
+import dateutil
 
 def item_to_rss(item):
     link = "https://aws.amazon.com/"+item["id"].replace("#","/")+"/"
-    desc = item['additionalFields'].get('description', '')
-    if not desc:
-      item['additionalFields'].get('content', '')
+    desc = ""
+    if "description" in item["additionalFields"]:
+        desc = item["additionalFields"]["description"]
+    elif "content" in item["additionalFields"]:
+        desc = item["additionalFields"]["content"]
     return PyRSS2Gen.RSSItem(
         author = item["author"],
         title = item["name"],
         link = link,
         guid = link,
         description = desc,
-        pubDate = parse(item["dateUpdated"])
+        pubDate = dateutil.parser.parse(item["dateUpdated"])
     )
 
 request = requests.get("https://aws.amazon.com/api/dirs/releasenotes/items?order_by=DateCreated&sort_ascending=false&limit=25&locale=en_US")
@@ -49,13 +51,15 @@ rss = PyRSS2Gen.RSS2(
     items = map(item_to_rss, request.json()["items"])
 )
 
-rssfile = StringIO()
-rss.write_xml(rssfile)
+rssdata = rss.to_xml(request.encoding)
 
 
-s3 = boto3.client("s3")
-if "tedder" in map(lambda b: b["Name"], s3.list_buckets()["Buckets"]):
-    s3.put_object(Bucket="dyn.tedder.me", Key="rss/aws-release-notes.xml", Body=rssfile.getvalue(), ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
-    s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssfile.getvalue(), ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
+if "S3_BUCKET_NAME" in os.environ:
+    s3 = boto3.client("s3")
+    s3.put_object(Bucket=os.environ["S3_BUCKET_NAME"], Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
+
+    # also upload to legacy bucket:
+    if os.environ["S3_BUCKET_NAME"] == "dyn.tedder.me":
+        s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
 else:
-    print(rssfile.getvalue())
+    print(rssdata)
