@@ -72,6 +72,7 @@ if "S3_BUCKET_NAME" in os.environ:
 
     # also upload to legacy bucket:
     if os.environ["S3_BUCKET_NAME"] == "dyn.tedder.me":
-        s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body=rssdata, ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read")
+        s3.put_object(Bucket="tedder", Key="rss/aws-release-notes.xml", Body='', ContentType="application/rss+xml", ContentEncoding=request.encoding, CacheControl="max-age=21600,public", ACL="public-read", WebsiteRedirectLocation="https://dyn.tedder.me/rss/aws-release-notes.xml")
+        print("uploaded to tedder")
 else:
     print(rssdata)
