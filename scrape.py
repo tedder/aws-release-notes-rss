@@ -74,7 +74,6 @@ if os.environ.get('S3_BUCKET_NAME'):
     Key="rss/aws-release-notes.xml",
     Body=rssdata,
     ContentType="application/rss+xml",
-    ContentEncoding=request.encoding,
     CacheControl="max-age=21600,public",
     ACL="public-read"
   )
